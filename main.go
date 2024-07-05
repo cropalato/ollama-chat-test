@@ -13,9 +13,12 @@ import (
 	"io"
 	"log"
 	"os"
+  "regexp"
 
 	"github.com/ollama/ollama/api"
 )
+
+var msgResp string
 
 func isInputFromPipe() bool {
     fileInfo, _ := os.Stdin.Stat()
@@ -23,7 +26,7 @@ func isInputFromPipe() bool {
 }
 
 func chatResp(resp api.ChatResponse) error {
-    fmt.Print(resp.Message.Content)
+    msgResp += resp.Message.Content
     return nil
   }
 
@@ -60,15 +63,17 @@ func main() {
     Messages: []api.Message{
       api.Message{
         Role: "user",
-        Content: "create a short git convetional commit message for the following changes\n" + gitDiff,
+        Content: "Use the following git diff output to create a short version of a git conventional commit message:\n" + gitDiff,
       },
     },
   }
-
-  err = client.Chat(ctx, req, chatResp)
-  if err != nil {
-    log.Fatal(err)
-  }
-  fmt.Printf("\n")
-
+    err = client.Chat(ctx, req, chatResp)
+    if err != nil {
+      log.Fatal(err)
+    }
+    re := regexp.MustCompile(`.*\x60\x60\x60\s(?P<msg>.+)\s\x60\x60\x60.*`)
+    matches := re.FindStringSubmatch(msgResp)
+    if matches != nil {
+      fmt.Println(matches[1])
+    }
 }
